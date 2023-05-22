@@ -133,7 +133,7 @@ if(${UCSB_BUILD_UKV})
   set(UKV_ENGINE_NAME UMEM) 
 
   include("${CMAKE_MODULE_PATH}/ukv.cmake")
-  list(APPEND UCSB_DB_LIBS "ukv")
+  list(APPEND UCSB_DB_LIBS "ustore")
   target_compile_definitions(ucsb_bench PUBLIC UCSB_HAS_UKV=1) 
 endif()
 

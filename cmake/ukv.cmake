@@ -27,11 +27,12 @@ include(ExternalProject)
 
 ExternalProject_Add(
     ukv_external
+        SOURCE_SUBDIR "../../../../ustore"
 
-    GIT_REPOSITORY "https://github.com/unum-cloud/ukv"
-    GIT_TAG "${REPOSITORY_BRANCH}"
-    GIT_SHALLOW 1
-    GIT_PROGRESS 0
+#    GIT_REPOSITORY "https://github.com/unum-cloud/ukv"
+#    GIT_TAG "${REPOSITORY_BRANCH}"
+#    GIT_SHALLOW 1
+#    GIT_PROGRESS 0
     
     PREFIX "${PREFIX_DIR}"
     DOWNLOAD_DIR "${PREFIX_DIR}/ukv-src"
