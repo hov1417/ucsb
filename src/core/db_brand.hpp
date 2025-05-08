@@ -1,7 +1,8 @@
 #pragma once
 
-#include "src/core/types.hpp"
 #include "src/core/db.hpp"
+#include "src/core/types.hpp"
+#include "src/plainhash/plainhash.hpp"
 
 #if defined(UCSB_HAS_USTORE)
 #include "src/ustore/ustore.hpp"
@@ -37,6 +38,7 @@ enum class db_brand_t {
     mongodb_k,
     redis_k,
     lmdb_k,
+    plain_k,
 };
 
 std::shared_ptr<db_t> make_db(db_brand_t db_brand, bool transactional) {
@@ -74,6 +76,7 @@ std::shared_ptr<db_t> make_db(db_brand_t db_brand, bool transactional) {
 #if defined(UCSB_HAS_LMDB)
         case db_brand_t::lmdb_k: return std::make_shared<symas::lmdb_t>();
 #endif
+        case db_brand_t::plain_k: return std::make_shared<plain::plainhash_t>();
         default: break;
         }
     }
@@ -95,6 +98,8 @@ inline db_brand_t parse_db_brand(std::string const& name) {
         return db_brand_t::redis_k;
     if (name == "lmdb")
         return db_brand_t::lmdb_k;
+    if (name == "plain")
+        return db_brand_t::plain_k;
     return db_brand_t::unknown_k;
 }
 

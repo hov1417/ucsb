@@ -26,14 +26,14 @@ class timer_t {
     inline timer_t(bm::State& bench) : bench_(&bench), state_(state_t::stopped_k) {}
 
     // Google benchmark timer methods
-    inline void pause() {
+    void __attribute__ ((noinline)) pause() {
         bench_->PauseTiming();
 
         assert(state_ == state_t::running_k);
         recalculate_operations_elapsed_time();
         state_ = state_t::paused_k;
     }
-    inline void resume() {
+    void __attribute__ ((noinline)) resume() {
         assert(state_ == state_t::paused_k);
         operations_start_time_ = high_resolution_clock_t::now();
         state_ = state_t::running_k;
@@ -42,7 +42,7 @@ class timer_t {
     }
 
     // Helper methods to calculate real time statistics
-    inline void start() {
+    void __attribute__ ((noinline)) start() {
         assert(state_ == state_t::stopped_k);
         elapsed_time_ = elapsed_time_t(0);
         operations_elapsed_time_ = elapsed_time_t(0);
@@ -51,7 +51,7 @@ class timer_t {
         operations_start_time_ = now;
         state_ = state_t::running_k;
     }
-    inline void stop() {
+    void __attribute__ ((noinline)) stop() {
         assert(state_ == state_t::running_k);
         recalculate_operations_elapsed_time();
         state_ = state_t::stopped_k;

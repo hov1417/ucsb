@@ -1,0 +1,69 @@
+{
+  "context": {
+    "date": "2025-05-08T01:08:01+04:00",
+    "host_name": "hov-XPS-15-7590",
+    "executable": "./build_release/build/bin/ucsb_bench",
+    "num_cpus": 12,
+    "mhz_per_cpu": 4500,
+    "cpu_scaling_enabled": true,
+    "caches": [
+      {
+        "type": "Data",
+        "level": 1,
+        "size": 32768,
+        "num_sharing": 2
+      },
+      {
+        "type": "Instruction",
+        "level": 1,
+        "size": 32768,
+        "num_sharing": 2
+      },
+      {
+        "type": "Unified",
+        "level": 2,
+        "size": 262144,
+        "num_sharing": 2
+      },
+      {
+        "type": "Unified",
+        "level": 3,
+        "size": 12582912,
+        "num_sharing": 12
+      }
+    ],
+    "load_avg": [
+      1,
+      1.34473,
+      1.59961
+    ],
+    "library_build_type": "release"
+  },
+  "benchmarks": [
+    {
+      "name": "Remove/iterations:1/repeats:1/real_time/threads:4",
+      "family_index": 0,
+      "per_family_instance_index": 0,
+      "run_name": "Remove/iterations:1/repeats:1/real_time/threads:4",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 4,
+      "iterations": 55000,
+      "real_time": 134.36260117273793,
+      "cpu_time": 43.96172398181818,
+      "time_unit": "us",
+      "bytes_per_second": 7621168.32408994,
+      "cpu_avg,%": 35.52631759643555,
+      "cpu_max,%": 280.0,
+      "disk,bytes": 2051100672.0,
+      "fails,%": 0.0,
+      "mem_avg(rss),bytes": 673999441.0,
+      "mem_avg(vm),bytes": 2737807904768.0,
+      "mem_max(rss),bytes": 1464074240.0,
+      "mem_max(vm),bytes": 2737807904768.0,
+      "operations/s": 7442.547191494082,
+      "processed,bytes": 56320000.0
+    }
+  ]
+}

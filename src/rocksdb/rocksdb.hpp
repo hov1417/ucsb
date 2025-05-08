@@ -1,7 +1,6 @@
 #pragma once
 
 #include <atomic>
-#include <iostream>
 #include <cstring>
 #include <memory>
 #include <string>

@@ -155,7 +155,7 @@ bool wiredtiger_t::open(std::string& error) {
         close();
         return false;
     }
-    
+
     ++state_;
     free_sessions_count_.store(sessions_.size());
 

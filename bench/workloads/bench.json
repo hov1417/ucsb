@@ -1,0 +1,74 @@
+[
+    {
+        "name": "Init",
+        "records_count": 1000000,
+        "operations_count": 100,
+        "value_length": 1024,
+        "bulk_load_proportion": 1.0,
+        "bulk_load_min_length": 10000,
+        "bulk_load_max_length": 10000
+    },
+    {
+        "name": "WriteOnly",
+        "records_count": 1000000,
+        "operations_count": 100000,
+        "upsert_proportion": 1.0,
+        "key_dist": "zipfian",
+        "value_length": 1024
+    },
+    {
+        "name": "ReadOnly",
+        "records_count": 1000000,
+        "operations_count": 100000,
+        "read_proportion": 1.0,
+        "key_dist": "zipfian",
+        "value_length": 1024
+    },
+    {
+        "name": "ReadHeavy",
+        "records_count": 1000000,
+        "operations_count": 100000,
+        "read_proportion": 0.99,
+        "upsert_proportion": 0.01,
+        "key_dist": "zipfian",
+        "value_length": 1024
+    },
+    {
+        "name": "ReadMostly",
+        "records_count": 1000000,
+        "operations_count": 100000,
+        "read_proportion": 0.99,
+        "upsert_proportion": 0.01,
+        "key_dist": "zipfian",
+        "value_length": 1024
+    },
+    {
+        "name": "Balanced",
+        "records_count": 1000000,
+        "operations_count": 100000,
+        "read_proportion": 0.5,
+        "upsert_proportion": 0.5,
+        "key_dist": "zipfian",
+        "value_length": 1024
+    },
+    {
+        "name": "RangeScan",
+        "records_count": 1000000,
+        "operations_count": 1000,
+        "read_proportion": 0.1,
+        "range_select_proportion": 0.9,
+        "key_dist": "zipfian",
+        "value_length": 1024,
+        "range_select_min_length": 256,
+        "range_select_max_length": 256,
+        "range_select_length_dist": "uniform"
+    },
+    {
+        "name": "Remove",
+        "records_count": 1055000,
+        "operations_count": 55000,
+        "value_length": 1024,
+        "remove_proportion": 1.0,
+        "key_dist": "zipfian"
+    }
+]

@@ -2,6 +2,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <signal.h>
 
 #include <fmt/format.h>
 #include <fmt/chrono.h>
@@ -37,6 +38,7 @@ void parse_and_validate_args(int argc, char* argv[], settings_t& settings) {
     argparse::ArgumentParser program(argv[0]);
     program.add_argument("-db", "--db-name").required().help("Database name");
     program.add_argument("-t", "--transaction").default_value(false).implicit_value(true).help("Transactional");
+    program.add_argument("-l", "--lazy").default_value(false).implicit_value(true).help("Wait for a SIGUSR1");
     program.add_argument("-cfg", "--config-path").required().help("Database configuration file path");
     program.add_argument("-wl", "--workload-path").required().help("Workloads file path");
     program.add_argument("-res", "--results-path").required().help("Results file path");
@@ -53,6 +55,7 @@ void parse_and_validate_args(int argc, char* argv[], settings_t& settings) {
 
     settings.db_name = program.get("db-name");
     settings.transactional = program.get<bool>("transaction");
+    settings.lazy = program.get<bool>("lazy");
     settings.db_config_file_path = program.get("config-path");
     settings.workloads_file_path = program.get("workload-path");
     settings.results_file_path = program.get("results-path");
@@ -502,12 +505,44 @@ void bench(bm::State& state, workload_t const& workload, db_t& db, bool transact
     }
 }
 
+void wait_for_signal(int signal) {
+    int sig;
+    sigset_t set;
+
+    // Create a signal set containing {signal}
+    sigemptyset(&set);
+    sigaddset(&set, signal);
+
+    // Block all signals in the set so that they don't terminate the program
+    sigprocmask(SIG_BLOCK, &set, NULL);
+
+    // Wait for SIGUSR signal
+    sigwait(&set, &sig);
+}
+
+void notify_that_benchmark_start() {
+    __pid_t parent_pid = getppid();
+    kill(parent_pid, SIGUSR1);
+}
+
+void notify_that_benchmark_end() {
+    __pid_t parent_pid = getppid();
+    kill(parent_pid, SIGUSR2);
+    // wait for parent to read the results
+    wait_for_signal(SIGUSR1);
+}
+
 int main(int argc, char** argv) {
 
     try {
         // Setup settings
         settings_t settings;
         parse_and_validate_args(argc, argv, settings);
+
+        if (settings.lazy) {
+            wait_for_signal(SIGUSR1);
+            notify_that_benchmark_start();
+        }
 
         // Resolve results paths
         fs::path final_results_file_path = settings.results_file_path;
@@ -597,6 +632,11 @@ int main(int argc, char** argv) {
 
         file_reporter_t::merge_results(in_progress_results_file_path, final_results_file_path);
         fs::remove(in_progress_results_file_path);
+
+        if (settings.lazy) {
+            notify_that_benchmark_end();
+        }
+
     }
     catch (exception_t const& ex) {
         fmt::print("UCSB exception: {}\n", ex.what());

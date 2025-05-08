@@ -248,7 +248,7 @@ operation_result_t lmdb_t::remove(key_t key) {
         return {0, operation_status_t::error_k};
     // mdb_set_compare(txn, &dbi_, compare_keys);
     res = mdb_del(txn, dbi_, &key_slice, nullptr);
-    if (res) {
+    if (res != 0 && res != MDB_NOTFOUND) {
         mdb_txn_abort(txn);
         return {0, operation_status_t::not_found_k};
     }

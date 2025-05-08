@@ -8,13 +8,13 @@ cmake_minimum_required(VERSION 3.20.1)
 # Enable/Disable Databases
 #######################################################################################################################
 
-option(UCSB_BUILD_USTORE "Build USTORE for the benchmark" ON)
+option(UCSB_BUILD_USTORE "Build USTORE for the benchmark" OFF)
 option(UCSB_BUILD_ROCKSDB "Build RocksDB for the benchmark" ON)
 option(UCSB_BUILD_LEVELDB "Build LevelDB for the benchmark" ON)
 option(UCSB_BUILD_WIREDTIGER "Build WiredTiger for the benchmark" ON)
 option(UCSB_BUILD_MONGODB "Build MongoDB for the benchmark" OFF)
 option(UCSB_BUILD_REDIS "Build Redis for the benchmark" OFF)
-option(UCSB_BUILD_LMDB "Build LMDB for the benchmark" OFF)
+option(UCSB_BUILD_LMDB "Build LMDB for the benchmark" ON)
 
 #######################################################################################################################
 # Set compiler
@@ -120,6 +120,7 @@ else ()
 endif()
 
 include("${CMAKE_MODULE_PATH}/benchmark.cmake")
+include("${CMAKE_MODULE_PATH}/base64.cmake")
 include("${CMAKE_MODULE_PATH}/tabulate.cmake")
 include("${CMAKE_MODULE_PATH}/fmt.cmake")
 include("${CMAKE_MODULE_PATH}/argparse.cmake")
@@ -131,11 +132,11 @@ add_executable(ucsb_bench ./src/bench.cxx)
 
 if(${UCSB_BUILD_USTORE})
   # Choose engine. Available engines: UCSET, ROCKSDB, LEVELDB, UDISK
-  set(USTORE_ENGINE_NAME UCSET) 
+  set(USTORE_ENGINE_NAME UCSET)
 
   include("${CMAKE_MODULE_PATH}/ustore.cmake")
   list(APPEND UCSB_DB_LIBS "ustore")
-  target_compile_definitions(ucsb_bench PUBLIC UCSB_HAS_USTORE=1) 
+  target_compile_definitions(ucsb_bench PUBLIC UCSB_HAS_USTORE=1)
 endif()
 
 if(${UCSB_BUILD_ROCKSDB})
@@ -174,7 +175,7 @@ if(${UCSB_BUILD_LMDB})
   target_compile_definitions(ucsb_bench PUBLIC UCSB_HAS_LMDB=1) 
 endif()
 
-set(CXX_TARGET_LINK_LIBRARIES z uring benchmark fmt ${UCSB_DB_LIBS})
+set(CXX_TARGET_LINK_LIBRARIES z uring benchmark fmt base64 ${UCSB_DB_LIBS})
 
 set(CMAKE_THREAD_LIBS_INIT "-lpthread")
 set(CMAKE_HAVE_THREADS_LIBRARY 1)
