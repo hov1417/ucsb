@@ -9,40 +9,15 @@ typedef struct {
 #include <linux/pid_namespace.h>
 #include <linux/sched.h>
 
-/**
- * Map to store global variables
- *
- * is_active_key -> 1 if currently running benchmark 0 otherwise
- * last_start_time_key -> last start/resume time
- * total_time_key -> total bench running time
- */
-BPF_HASH(bench, const u8, u64);
-
-const u8 is_active_key = 0;
-const u8 last_start_time_key = 1;
-const u8 total_time_key = 2;
-
-static u8 is_inactive() {
-    u64* is_active = bench.lookup(&is_active_key);
-    return (is_active == 0 || *is_active == 0);
-}
-
-
-#define FILTER_IF_INACTIVE if (0/*is_inactive()*/) return 0;
-
 struct event {
     u64 timestamp_ns;
-    u64 thread_id;
+    u32 thread_id;
     u8 start; // 1 -> start, 0 -> end
 };
 BPF_STACK(bench_times, struct event, 10240);
 
 
 int bench_enter() {
-//    u64 one = 1;
-//    bench.update(&is_active_key, &one);
-//    u64 current_time = bpf_ktime_get_ns();
-//    bench.update(&last_start_time_key, &current_time);
     struct event e = {0};
     e.timestamp_ns = bpf_ktime_get_ns();
     e.start = 1;
@@ -52,19 +27,10 @@ int bench_enter() {
 }
 
 int bench_exit() {
-//    u64 zero = 0;
-//    bench.update(&is_active_key, &zero);
-//    u64 * start_time = bench.lookup(&last_start_time_key);
-//    if (start_time) {
-//        u64 duration = bpf_ktime_get_ns() - *start_time;
-//        u64* total = bench.lookup_or_try_init(&total_time_key, &zero);
-//        if (total) {
-//            lock_xadd(total, duration);
-//        }
-//    }
     struct event e = {0};
     e.timestamp_ns = bpf_ktime_get_ns();
     e.start = 0;
+    e.thread_id = bpf_get_current_pid_tgid();
     bench_times.push(&e, BPF_EXIST);
     return 0;
 }
@@ -96,6 +62,9 @@ int syscall__clone3(struct pt_regs *ctx,
     }
     u64 * pid = &cl_args->parent_tid; // Child's tid in parent's memory
     pid_thread_call.update(&pid_tgid, &pid);
+	u32 set = cl_args->flags & CLONE_PARENT_SETTID;
+	bpf_trace_printk("CLONE_PARENT_SETTID %d\n", set);
+
     return 0;
 }
 
@@ -104,13 +73,10 @@ int syscall__ret_clone3(struct pt_regs *ctx) {
     if (pid_tgid >> 32 != PROCESS_ID) {
         return 0;
     }
-    u64 * *pid = pid_thread_call.lookup(&pid_tgid);
-    if (pid == 0) {
-        return 0;
-    }
+	u64 pid = PT_REGS_RC(ctx);
     struct data_t data = {};
     data.timestamp_ns = bpf_ktime_get_ns();
-    data.tid = **pid;
+    data.tid = pid;
     data.start = 1;
 
     threads.push(&data, BPF_EXIST);
@@ -144,32 +110,6 @@ int syscall__exit(struct pt_regs *ctx) {
 
     return 0;
 }
-
-//void thread_create_entry(struct pt_regs *ctx) {
-//    u64 pid_tgid = bpf_get_current_pid_tgid();
-//    if (pid_tgid >> 32 != PROCESS_ID) {
-//        return;
-//    }
-//    u64* pthread = PT_REGS_PARM1(ctx);
-//    pid_thread_call.update(&pid_tgid, &pthread);
-//}
-//
-//void thread_create_exit(struct pt_regs *ctx) {
-//    u64 pid_tgid = bpf_get_current_pid_tgid();
-//    if (pid_tgid >> 32 != PROCESS_ID) {
-//        return;
-//    }
-//    pthread_t** pthread = pid_thread_call.lookup(&pid_tgid);
-//    if (pthread == 0) {
-//        return;
-//    }
-//    struct data_t data = {};
-//    data.ts = bpf_ktime_get_ns();
-//    data.tid = **pthread;
-//
-//    threads.push(&data, BPF_EXIST);
-//}
-
 
 // TODO: add warning on python side, when stack is full
 BPF_STACK_TRACE(stack_traces, 10000);
@@ -300,7 +240,6 @@ static inline void update_statistics_del(u64 stack_id, u64 sz) {
 
 static inline int gen_alloc_enter(struct pt_regs *ctx, size_t size) {
     FILTER_BY_PID
-    FILTER_IF_INACTIVE
 
     u64 pid = bpf_get_current_pid_tgid();
     u64 size64 = size;
@@ -311,7 +250,6 @@ static inline int gen_alloc_enter(struct pt_regs *ctx, size_t size) {
 
 static inline int gen_alloc_exit2(struct pt_regs *ctx, u64 address) {
     FILTER_BY_PID
-    FILTER_IF_INACTIVE
 
     u64 pid = bpf_get_current_pid_tgid();
     u64 * size64 = sizes.lookup(&pid);
@@ -340,7 +278,6 @@ static inline int gen_alloc_exit(struct pt_regs *ctx) {
 
 static inline int gen_free_enter(struct pt_regs *ctx, void *address) {
     FILTER_BY_PID
-    FILTER_IF_INACTIVE
 
     u64 addr = (u64)address;
     struct alloc_info_t *info = allocs.lookup(&addr);
@@ -575,7 +512,6 @@ BPF_HASH(kernel_cache_counts, struct key_t, struct val_t);
 
 int trace_cache_alloc(struct pt_regs *ctx, struct kmem_cache *cachep) {
     FILTER_BY_PID
-    FILTER_IF_INACTIVE
 
     u64 size = cachep->size;
 
@@ -597,7 +533,6 @@ int trace_cache_alloc(struct pt_regs *ctx, struct kmem_cache *cachep) {
 
 int trace_cache_free(struct pt_regs *ctx, struct kmem_cache *cachep) {
     FILTER_BY_PID
-    FILTER_IF_INACTIVE
 
     u64 size = cachep->size;
 

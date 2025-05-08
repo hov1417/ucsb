@@ -315,7 +315,11 @@ def save_snapshot(
     snapshot_prefix: Optional[str] = None,
 ):
     snapshot = {
-        "times": [(v.timestamp_ns, v.start) for v in bpf["bench_times"].values()][::-1],
+        "times": [{
+            "timestamp_ns": v.timestamp_ns,
+            "start" : v.start == 1,
+            "thread_id": v.thread_id
+        } for v in bpf["bench_times"].values()][::-1],
         "time_ms": round(time.time() * 1_000)
     }
 
