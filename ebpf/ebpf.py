@@ -5,15 +5,20 @@ import logging
 import os
 import resource
 import signal
+import sys
 import time
 from typing import Optional, Tuple
 
+import bcc
 import pexpect
 from bcc import BPF
 from bcc.syscall import syscall_name
 from pexpect import spawn
 
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.WARNING)
 logging.basicConfig(filename="/tmp/ebpf.log", encoding="utf-8", level=logging.DEBUG)
+logging.getLogger().addHandler(handler)
 
 
 class SetEncoder(json.JSONEncoder):
@@ -48,7 +53,7 @@ class Allocation(object):
 
 def get_outstanding(bpf, pid, min_age_ns, top):
     alloc_info = {}
-    allocs = bpf["allocs"]
+    allocs = check_size(bpf["allocs"], "too many allocation events")
     stack_traces = bpf["stack_traces"]
     for address, info in sorted(allocs.items(), key=lambda a: a[1].size):
         if BPF.monotonic_time() - min_age_ns < info.timestamp_ns or info.stack_id < 0:
@@ -105,10 +110,10 @@ class CombinedAlloc(object):
 
 
 def get_statistics(bpf, pid, min_age_ns, top):
-    stack_traces = bpf["stack_traces"]
+    stack_traces = check_size(bpf["stack_traces"], "too many stack traces")
     combined_alloc = list(
         sorted(
-            map(CombinedAlloc, bpf["combined_allocs"].items()),
+            map(CombinedAlloc, check_size(bpf["combined_allocs"], "too many alloc events").items()),
             key=lambda a: a.key(),
         )
     )
@@ -167,7 +172,7 @@ def gernel_kernel_cache(bpf, top):
         sorted(
             filter(
                 lambda a: a[1].alloc_size > a[1].free_size,
-                bpf["kernel_cache_counts"].items(),
+                check_size(bpf["kernel_cache_counts"], "too many kernel cache events").items(),
             ),
             key=lambda a: a[1].alloc_size - a[1].free_size,
         )
@@ -194,7 +199,7 @@ def gernel_kernel_cache(bpf, top):
     return caches
 
 
-def get_syscalls(bpf):
+def get_syscalls(bpf: BPF):
     syscall_counts = bpf["syscall_counts"]
     syscalls = {}
     for k, v in syscall_counts.items():
@@ -254,11 +259,11 @@ def _get_additional_syscall_info(bpf, pid):
 
 
 def get_additional_syscall_info(bpf, pid):
-    syscall_counts_stacks = bpf["syscalls"]
+    syscall_counts_stacks = stack_load_values(bpf, "syscalls")
     syscalls_per_thread = {}
     # tid_to_syscall_timestamps = {}
     all_syscalls = []
-    for v in syscall_counts_stacks.values():
+    for v in syscall_counts_stacks:
         thread_id = ((1 << 32) - 1) & v.pid_tgid
         stack_dict = syscalls_per_thread.setdefault(thread_id, {}).setdefault(
             system_call_name(v.id), {}
@@ -304,22 +309,39 @@ def get_additional_syscall_info(bpf, pid):
     }
 
 
+def check_size(table: bcc.table.TableBase, message):
+    if len(table) >= table.max_entries:
+        logging.warning(f"Table is full: {message}")
+    return table
+
+
+def stack_load_values(bpf: BPF, name):
+    stack = bpf[name]
+    if isinstance(stack, bcc.table.QueueStack):
+        raise ValueError(f"cannot open {name} QueueStack, it is a {type(stack)}")
+    max_entries = stack.max_entries
+    values = stack.values()
+    if len(values) == max_entries:
+        logging.warning(f"{name} QueueStack is full")
+    return values
+
+
 def save_snapshot(
-    bpf: BPF,
-    pid: int,
-    min_age_ns: int,
-    top: int,
-    snapshot_dir: str,
-    with_memory: bool,
-    with_syscall_details: bool,
-    snapshot_prefix: Optional[str] = None,
+        bpf: BPF,
+        pid: int,
+        min_age_ns: int,
+        top: int,
+        snapshot_dir: str,
+        with_memory: bool,
+        with_syscall_details: bool,
+        snapshot_prefix: Optional[str] = None,
 ):
     snapshot = {
         "times": [{
             "timestamp_ns": v.timestamp_ns,
-            "start" : v.start == 1,
+            "start": v.start == 1,
             "thread_id": v.thread_id
-        } for v in bpf["bench_times"].values()][::-1],
+        } for v in stack_load_values(bpf, "bench_times")][::-1],
         "time_ms": round(time.time() * 1_000)
     }
 
@@ -331,7 +353,7 @@ def save_snapshot(
     # add attach and detach time
     snapshot["threads"] = [
         {"timestamp_ns": v.timestamp_ns, "tid": v.tid, "start": v.start}
-        for v in bpf["threads"].values()
+        for v in stack_load_values(bpf, "threads")
     ]
 
     if with_syscall_details:
@@ -501,17 +523,17 @@ def sleep_and_check(
 
 
 def harvest_ebpf(
-    bpf: BPF,
-    pid: int = -1,
-    process: Optional[spawn] = None,
-    top: int = 10,
-    interval: int = 5,
-    min_age_ns: int = 500,
-    with_memory: bool = False,
-    with_syscall_details: bool = False,
-    save_snapshots: Optional[str] = None,
-    snapshot_prefix: Optional[str] = None,
-    communicate_with_signals: bool = False,
+        bpf: BPF,
+        pid: int = -1,
+        process: Optional[spawn] = None,
+        top: int = 10,
+        interval: int = 5,
+        min_age_ns: int = 500,
+        with_memory: bool = False,
+        with_syscall_details: bool = False,
+        save_snapshots: Optional[str] = None,
+        snapshot_prefix: Optional[str] = None,
+        communicate_with_signals: bool = False,
 ):
     if pid == -1 and process is None:
         raise ValueError("Either pid or process must be specified")

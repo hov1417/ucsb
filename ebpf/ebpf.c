@@ -14,7 +14,7 @@ struct event {
     u32 thread_id;
     u8 start; // 1 -> start, 0 -> end
 };
-BPF_STACK(bench_times, struct event, 10240);
+BPF_STACK(bench_times, struct event, 1024);
 
 
 int bench_enter() {
@@ -111,7 +111,6 @@ int syscall__exit(struct pt_regs *ctx) {
     return 0;
 }
 
-// TODO: add warning on python side, when stack is full
 BPF_STACK_TRACE(stack_traces, 10000);
 
 
@@ -122,10 +121,7 @@ struct sys_call_data_t {
     u64 total_ns;
 };
 
-// TODO: add warning on python side, when stack is full
 BPF_HASH(syscall_start, u64, u64, 10000);
-
-// TODO: add warning on python side, when stack is full
 BPF_HASH(syscall_counts, u64, struct sys_call_data_t, 10000);
 
 //#ifdef COLLECT_SYSCALL_STACK_INFO
@@ -138,8 +134,7 @@ struct sys_call_t {
     u64 end_timestamp_ns;
 };
 
-// TODO: add warning on python side, when stack is full
-BPF_STACK(syscalls, struct sys_call_t, 50000);
+BPF_STACK(syscalls, struct sys_call_t, 500000);
 
 //#endif // COLLECT_SYSCALL_STACK_INFO
 
@@ -204,7 +199,7 @@ struct combined_alloc_info_t {
 };
 
 // count of allocations per stack trace
-BPF_HASH(combined_allocs, u64, struct combined_alloc_info_t, 10000);
+BPF_HASH(combined_allocs, u64, struct combined_alloc_info_t, 50000);
 
 BPF_HASH(sizes, u64);
 BPF_HASH(allocs, u64, struct alloc_info_t, 10000);
