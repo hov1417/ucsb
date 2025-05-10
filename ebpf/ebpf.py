@@ -276,12 +276,12 @@ def get_additional_syscall_info(bpf, pid):
         if v.start_timestamp_ns == 0:
             # bpf_ktime_get_ns is nanoseconds since boot
             # so either the system has been running for a long time (~ 9.7 years) or there is a bug
-            print("Warning: old value was not clear see tracepoint__raw_syscalls__sys_enter")
+            logging.error("old value was not clear see tracepoint__raw_syscalls__sys_enter")
         all_syscalls.append(
             {
                 "id": system_call_name(v.id),
                 "stack_id": v.stack_id,
-                "pid_tgid": v.pid_tgid,
+                "thread_id": thread_id,
                 "start_timestamp_ns": v.start_timestamp_ns,
                 "end_timestamp_ns": v.end_timestamp_ns,
             }
@@ -317,7 +317,7 @@ def check_size(table: bcc.table.TableBase, message):
 
 def stack_load_values(bpf: BPF, name):
     stack = bpf[name]
-    if isinstance(stack, bcc.table.QueueStack):
+    if not isinstance(stack, bcc.table.QueueStack):
         raise ValueError(f"cannot open {name} QueueStack, it is a {type(stack)}")
     max_entries = stack.max_entries
     values = stack.values()
@@ -350,9 +350,15 @@ def save_snapshot(
         snapshot["kernel_caches"] = gernel_kernel_cache(bpf, top)
 
     snapshot["syscalls"] = get_syscalls(bpf)
+    stack_traces = check_size(bpf["stack_traces"], "too many stack traces")
     # add attach and detach time
     snapshot["threads"] = [
-        {"timestamp_ns": v.timestamp_ns, "tid": v.tid, "start": v.start}
+        {
+            "timestamp_ns": v.timestamp_ns,
+            "tid": v.tid,
+            "start": v.start,
+            "stack": get_trace_info_as_list(bpf, pid, stack_traces, v.stack_id),
+        }
         for v in stack_load_values(bpf, "threads")
     ]
 
@@ -460,7 +466,6 @@ def attach_probes(
         bpf.attach_kprobe(event="kmem_cache_free_bulk", fn_name="trace_cache_free")
 
     clone_syscall = bpf.get_syscall_fnname("clone3")
-    bpf.attach_kprobe(event=clone_syscall, fn_name="syscall__clone3")
     bpf.attach_kretprobe(event=clone_syscall, fn_name="syscall__ret_clone3")
 
     runner = "./build_release/build/bin/ucsb_bench"

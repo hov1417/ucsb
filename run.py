@@ -166,7 +166,6 @@ def run(
     process_cmd = f'{runner} -db {db_name} {transactional_flag} {lazy_flag} -cfg "{db_config_file_path}" ' \
                   f'-wl "{workloads_file_path}" -md "{db_main_dir_path}" -sd "{db_storage_dir_paths}" ' \
                   f'-res "{results_file_path}" -th {threads_count} -fl {filter} -ri {run_index} -rc {runs_count}'
-    print(process_cmd)
     process = pexpect.spawn(process_cmd)
 
     if with_ebpf and (db_name == "mongodb" or db_name == "redis"):
@@ -190,7 +189,7 @@ def run(
             args=(bpf,),
             kwargs={
                 "process": process,
-                "interval": 5,
+                "interval": 15,
                 "with_memory": with_ebpf_memory,
                 "with_syscall_details": with_syscall_details,
                 "snapshot_prefix": "-".join(workload_names),

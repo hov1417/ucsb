@@ -9,7 +9,7 @@ ExternalProject_Add(
     lmdb_external
 
     GIT_REPOSITORY "https://github.com/LMDB/lmdb.git"
-    GIT_TAG LMDB_0.9.29
+    GIT_TAG LMDB_0.9.31
     GIT_SHALLOW 1
     GIT_PROGRESS 0
     

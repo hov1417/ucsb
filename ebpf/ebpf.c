@@ -15,6 +15,7 @@ struct event {
     u8 start; // 1 -> start, 0 -> end
 };
 BPF_STACK(bench_times, struct event, 1024);
+BPF_STACK_TRACE(stack_traces, 50000);
 
 
 int bench_enter() {
@@ -48,25 +49,10 @@ struct data_t {
     u64 timestamp_ns;
     u64 tid;
     u8 start;
+	int stack_id;
 };
 
 BPF_STACK(threads, struct data_t, 100);
-BPF_HASH(pid_thread_call, u64, u64*, 1000);
-
-
-int syscall__clone3(struct pt_regs *ctx,
-                    struct clone_args *cl_args) {
-    u64 pid_tgid = bpf_get_current_pid_tgid();
-    if (pid_tgid >> 32 != PROCESS_ID) {
-        return 0;
-    }
-    u64 * pid = &cl_args->parent_tid; // Child's tid in parent's memory
-    pid_thread_call.update(&pid_tgid, &pid);
-	u32 set = cl_args->flags & CLONE_PARENT_SETTID;
-	bpf_trace_printk("CLONE_PARENT_SETTID %d\n", set);
-
-    return 0;
-}
 
 int syscall__ret_clone3(struct pt_regs *ctx) {
     u64 pid_tgid = bpf_get_current_pid_tgid();
@@ -74,10 +60,12 @@ int syscall__ret_clone3(struct pt_regs *ctx) {
         return 0;
     }
 	u64 pid = PT_REGS_RC(ctx);
+
     struct data_t data = {};
     data.timestamp_ns = bpf_ktime_get_ns();
     data.tid = pid;
     data.start = 1;
+	data.stack_id = stack_traces.get_stackid(ctx, BPF_F_USER_STACK);
 
     threads.push(&data, BPF_EXIST);
     return 0;
@@ -111,8 +99,6 @@ int syscall__exit(struct pt_regs *ctx) {
     return 0;
 }
 
-BPF_STACK_TRACE(stack_traces, 10000);
-
 
 /** System Calls */
 
@@ -134,7 +120,7 @@ struct sys_call_t {
     u64 end_timestamp_ns;
 };
 
-BPF_STACK(syscalls, struct sys_call_t, 500000);
+BPF_STACK(syscalls, struct sys_call_t, 2000000);
 
 //#endif // COLLECT_SYSCALL_STACK_INFO
 
@@ -157,9 +143,10 @@ int tracepoint__raw_syscalls__sys_enter(struct tracepoint__raw_syscalls__sys_ent
 }
 
 int tracepoint__raw_syscalls__sys_exit(struct tracepoint__raw_syscalls__sys_exit *args) {
-    FILTER_BY_PID
-
     u64 pid_tgid = bpf_get_current_pid_tgid();
+	if (pid_tgid >> 32 != PROCESS_ID) {
+		return 0;
+	}
 
     u64 * start_ns = syscall_start.lookup(&pid_tgid);
     if (!start_ns)
@@ -199,7 +186,7 @@ struct combined_alloc_info_t {
 };
 
 // count of allocations per stack trace
-BPF_HASH(combined_allocs, u64, struct combined_alloc_info_t, 50000);
+BPF_HASH(combined_allocs, u64, struct combined_alloc_info_t, 100000);
 
 BPF_HASH(sizes, u64);
 BPF_HASH(allocs, u64, struct alloc_info_t, 10000);
@@ -234,20 +221,24 @@ static inline void update_statistics_del(u64 stack_id, u64 sz) {
 }
 
 static inline int gen_alloc_enter(struct pt_regs *ctx, size_t size) {
-    FILTER_BY_PID
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+	if (pid_tgid >> 32 != PROCESS_ID) {
+		return 0;
+	}
 
-    u64 pid = bpf_get_current_pid_tgid();
     u64 size64 = size;
-    sizes.update(&pid, &size64);
+    sizes.update(&pid_tgid, &size64);
 
     return 0;
 }
 
 static inline int gen_alloc_exit2(struct pt_regs *ctx, u64 address) {
-    FILTER_BY_PID
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+	if (pid_tgid >> 32 != PROCESS_ID) {
+		return 0;
+	}
 
-    u64 pid = bpf_get_current_pid_tgid();
-    u64 * size64 = sizes.lookup(&pid);
+    u64 * size64 = sizes.lookup(&pid_tgid);
     struct alloc_info_t info = {0};
 
     if (size64 == 0) {
@@ -255,7 +246,7 @@ static inline int gen_alloc_exit2(struct pt_regs *ctx, u64 address) {
     }
 
     info.size = *size64;
-    sizes.delete(&pid);
+    sizes.delete(&pid_tgid);
 
     if (address != 0) {
         info.timestamp_ns = bpf_ktime_get_ns();
