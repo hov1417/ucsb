@@ -58,3 +58,5 @@ code-review*.bak
 *.app
 
 **/__pycache__/
+
+result
