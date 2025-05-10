@@ -1,9 +1,7 @@
 <h1 align="center">Unbranded Cloud Serving Benchmark eBPF</h1>
 <h3 align="center">
-eBPF enhanced fork of <a href="https://github.com/unum-cloud/ucsb">UCSV</a><br/>
-<br/>
+eBPF enhanced fork of <a href="https://github.com/unum-cloud/ucsb">UCSV</a>
 </h3>
-<br/>
 
 ---
 
