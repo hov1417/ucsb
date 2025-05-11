@@ -154,7 +154,6 @@ namespace ucsb::plain
     {
         map_lock_.lock();
         map_->insert({key, std::move(std::vector(value.begin(), value.end()))});
-        // save_as_json();
         map_lock_.unlock();
         return {1, operation_status_t::ok_k};
     }
@@ -165,7 +164,6 @@ namespace ucsb::plain
         if (map_->contains(key))
         {
             map_->insert({key, std::move(std::vector(value.begin(), value.end()))});
-//            save_as_json();
             map_lock_.unlock();
             return {1, operation_status_t::ok_k};
         }
@@ -182,7 +180,6 @@ namespace ucsb::plain
         if (map_->contains(key))
         {
             map_->erase(key);
-//            save_as_json();
             map_lock_.unlock();
             return {1, operation_status_t::ok_k};
         }
@@ -200,7 +197,6 @@ namespace ucsb::plain
         {
             auto data = map_->at(key);
             memcpy(value.data(), data.data(), data.size());
-//            save_as_json();
             map_lock_.unlock();
             return {1, operation_status_t::ok_k};
         }
@@ -223,7 +219,6 @@ namespace ucsb::plain
             map_->insert({key, std::move(std::vector(value.begin(), value.end()))});
             offset += sizes[idx];
         }
-//        save_as_json();
         map_lock_.unlock();
         return {keys.size(), operation_status_t::ok_k};
     }
@@ -239,7 +234,6 @@ namespace ucsb::plain
             memcpy(values.data() + offset, data.data(), data.size());
             offset += data.size();
         }
-//        save_as_json();
         map_lock_.unlock();
         return {keys.size(), operation_status_t::ok_k};
     }

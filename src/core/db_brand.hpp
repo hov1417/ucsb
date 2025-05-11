@@ -3,6 +3,7 @@
 #include "src/core/db.hpp"
 #include "src/core/types.hpp"
 #include "src/plainhash/plainhash.hpp"
+#include "src/filekv/filekv.hpp"
 
 #if defined(UCSB_HAS_USTORE)
 #include "src/ustore/ustore.hpp"
@@ -39,6 +40,7 @@ enum class db_brand_t {
     redis_k,
     lmdb_k,
     plain_k,
+    filekv_k,
 };
 
 std::shared_ptr<db_t> make_db(db_brand_t db_brand, bool transactional) {
@@ -77,6 +79,7 @@ std::shared_ptr<db_t> make_db(db_brand_t db_brand, bool transactional) {
         case db_brand_t::lmdb_k: return std::make_shared<symas::lmdb_t>();
 #endif
         case db_brand_t::plain_k: return std::make_shared<plain::plainhash_t>();
+        case db_brand_t::filekv_k: return std::make_shared<filekv::filekv_t>();
         default: break;
         }
     }
@@ -100,6 +103,8 @@ inline db_brand_t parse_db_brand(std::string const& name) {
         return db_brand_t::lmdb_k;
     if (name == "plain")
         return db_brand_t::plain_k;
+    if (name == "filekv")
+        return db_brand_t::filekv_k;
     return db_brand_t::unknown_k;
 }
 

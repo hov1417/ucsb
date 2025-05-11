@@ -1,0 +1,21 @@
+[
+    {
+        "name": "Init",
+        "records_count": 100000,
+        "operations_count": 10,
+        "value_length": 10240,
+        "bulk_load_proportion": 1.0,
+        "bulk_load_min_length": 10000,
+        "bulk_load_max_length": 10000
+    },
+    {
+        "name": "LoadBalancer",
+        "records_count": 100000,
+        "operations_count": 10000,
+        "value_length": 10240,
+        "read_proportion": 0.99,
+        "upsert_proportion": 0.005,
+        "remove_proportion": 0.005,
+        "key_dist": "zipfian"
+    }
+]
