@@ -5,7 +5,9 @@
 #include <unistd.h>
 
 #include <filesystem>
+#include <iomanip>
 #include <span>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -49,7 +51,13 @@ namespace ucsb::filekv
         }
     };
 
-    inline fs::path make_path(const fs::path& dir, key_t key) { return dir / std::to_string(key); }
+    inline fs::path make_path(const fs::path& dir, key_t key)
+    {
+        std::ostringstream ss;
+        ss << std::setw(10) << std::setfill('0') << key;
+        std::string k = ss.str();
+        return dir / k.substr(0, 4) / k.substr(4, 3) / k.substr(7, 3);
+    }
 
     class filekv_t : public ucsb::db_t
     {
@@ -61,19 +69,17 @@ namespace ucsb::filekv
                         std::vector<fs::path> const& storage_dir_paths, db_hints_t const& hints) override;
 
         bool open(std::string& error) override;
-        std::string info() override { return "File‑per‑key KV"; }
+        std::string info() override { return "File-per-key KV"; }
         void close() override {}
         void flush() override {}
         size_t size_on_disk() const override;
         std::unique_ptr<transaction_t> create_transaction() override { return {}; }
 
-        // single‑key ops
         operation_result_t upsert(key_t key, value_spanc_t value) override;
         operation_result_t update(key_t key, value_spanc_t value) override;
         operation_result_t remove(key_t key) override;
         operation_result_t read(key_t key, value_span_t dst) const override;
 
-        // batched ops
         operation_result_t batch_upsert(keys_spanc_t keys, values_spanc_t values, value_lengths_spanc_t sizes) override;
         operation_result_t batch_read(keys_spanc_t keys, values_span_t dst) const override;
 
@@ -113,10 +119,15 @@ namespace ucsb::filekv
         return true;
     }
 
-
     inline operation_result_t filekv_t::upsert(key_t key, value_spanc_t val)
     {
         fs::path path = make_path(data_dir_, key);
+
+        std::error_code ec;
+        fs::create_directories(path.parent_path(), ec);
+        if (ec)
+            return {0, operation_status_t::error_k};
+
         int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1)
             return {0, operation_status_t::error_k};
@@ -152,7 +163,7 @@ namespace ucsb::filekv
             return {0, operation_status_t::not_found_k};
         fd_lock_t lock(fd, /*exclusive*/ false);
         ssize_t n = ::read(fd, dst.data(), dst.size());
-        return {n > 0 ? size_t(0) : size_t(1), n > 0 ? operation_status_t::ok_k : operation_status_t::error_k};
+        return {n > 0 ? size_t(1) : size_t(0), n > 0 ? operation_status_t::ok_k : operation_status_t::error_k};
     }
 
     inline operation_result_t filekv_t::batch_upsert(keys_spanc_t keys, values_spanc_t vals,
